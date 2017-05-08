@@ -28,33 +28,45 @@ enum DownloadMode{
 
 //Event class. stores time(as Calendar object), url, request type
 class RequestEvent{
+    int event_id;
     Calendar cal;
     String url;
     RequestType type;
     DownloadMode mode;
     String postDataSize;
-    RequestEvent(Calendar tcal, String turl, RequestType ttype, DownloadMode tmode){
+    int url_dependency ; //if 0 no dependency schedule on given time ; else if = x, schedule it only when x completes
+    int relative_time =0;
+
+    RequestEvent(int id ,Calendar tcal, String turl, RequestType ttype, DownloadMode tmode,int url_dep){
+        event_id = id;
         cal = tcal;
         url = turl;
         type = ttype;
         mode = tmode;
+        url_dependency = url_dep;
     }
 
     RequestEvent(RequestEvent e)
     {
+        event_id = e.event_id;
         cal = e.cal;
         url = e.url;
         type = e.type;
         mode = e.mode;
         postDataSize = e.postDataSize;
+        url_dependency = e.url_dependency;
+        relative_time = e.relative_time;
     }
 
-    RequestEvent(Calendar tcal, String turl, RequestType ttype, DownloadMode tmode, String size){
+    RequestEvent(int id,Calendar tcal, String turl, RequestType ttype, DownloadMode tmode, String size , int url_dep , int relative_t){
+        event_id = id;
         cal = tcal;
         url = turl;
         type = ttype;
         mode = tmode;
         postDataSize = size;
+        url_dependency = url_dep;
+        relative_time = relative_t;
     }
 
 
@@ -64,9 +76,18 @@ class RequestEvent{
 class Load{
     long loadid;
     Vector<RequestEvent> events;
-    Load(long tloadid, Vector<RequestEvent> tevents){
+    Vector<RequestEvent> independent_events;
+    Map< Integer , Vector<RequestEvent>> url_dependency_graph;
+    int total_events;
+
+    int request_completed ;
+    Load(long tloadid,int tcount, Vector<RequestEvent> all_events, Vector<RequestEvent> tevents , Map< Integer , Vector<RequestEvent>> dep_graph){
         loadid = tloadid;
-        events = tevents;
+        events = all_events;
+        total_events = tcount;
+        independent_events = tevents;
+        url_dependency_graph = dep_graph;
+        request_completed =0;
     }
 }
 
@@ -121,6 +142,8 @@ public class RequestEventParser {
     }
 
     public static RequestEvent parseLine(String line){
+
+        Log.d(" RequestEventParser" , " in parse line :"+line);
         String[] fields = line.split(" ");
         Log.d("RequestEventParser ", fields[0] + fields.length);
 
@@ -128,71 +151,72 @@ public class RequestEventParser {
             Log.d("RequestEventParser:", "No of fields less than expected");
             return null; //No valid event could be found
         }
-        // atleast there are 10 fields(DOWNLOADMODE CAN BE "SOCKET/WEBVIEW"
-        // TYPE relative_time DOWNLOADMODE URL
-        // 0     1              2           3    4
+        // atleast there are 5 fields(DOWNLOADMODE CAN BE "SOCKET/WEBVIEW"
+        // TYPE relative_time DOWNLOADMODE URL postsize url_dependency
+        // 0     1              2           3    4          5
         RequestType type = getRequestEnum(fields[0]);
-       // Log.d("Request type ...... ", type.toString() + " " + fields[8] + " " + fields[9]);
 
-        //Calendar cal = Utils.getServerCalendarInstance();
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis( MainActivity.serverTimeInMillis + (Integer.parseInt(fields[1]) *1000 )) ;
-
-       // Log.d("Swinky", "getServerCalendarInstance event: " + MainActivity.sdf.format(cal.getTime()));
         DownloadMode mode = getDownloadModeEnum(fields[2]);
         String url = fields[3];
+        int url_dep = Integer.parseInt(fields[fields.length-1]);
+        int relative_t =0;
+        if(url_dep !=0){
+            relative_t = Integer.parseInt(fields[1]);
+        }
 
-        if(fields.length == 4){
-//		  String retmsg = Threads.writeToLogFile(MainActivity.logfilename,"LINE5 : "+line+"-"+fields[10]+"\n");
-//		  Intent localIntent = new Intent(Constants.BROADCAST_ACTION).putExtra(Constants.BROADCAST_MESSAGE, "LINE6 : "+line+"-"+fields[10]);
-
-            return new RequestEvent(cal, url, type, mode,"0");
-        } else if (fields.length == 5){
-
-//		  int size = Integer.parseInt(fields[10].trim());
-
-//			return new RequestEvent(cal, url, type, mode, Integer.parseInt(fields[10]));
-//		  String retmsg = Threads.writeToLogFile(MainActivity.logfilename,"LINE3 : "+line+"-"+fields[10]+"\n");
-//		  Intent localIntent = new Intent(Constants.BROADCAST_ACTION).putExtra(Constants.BROADCAST_MESSAGE, "LINE4 : "+line+"-"+fields[10]);
-
-            return new RequestEvent(cal, url, type, mode, fields[4]);
+        if(fields.length == 5){
+            return new RequestEvent(0,cal, url, type, mode,"0",url_dep,relative_t);
+        } else if (fields.length == 6){
+            return new RequestEvent(0,cal, url, type, mode, fields[4],url_dep,relative_t);
         }
         return null;
     }
 
     public static Load parseEvents(String s){
         String msg =" RequestEventParser : Entered Here. ";
-       // Log.d("Return event entering", "HERE");
-        Vector<RequestEvent> events = new Vector<RequestEvent>();
+        Vector<RequestEvent> independent_events = new Vector<RequestEvent>();
+        Vector<RequestEvent> all_events = new Vector<RequestEvent>();
+        Map< Integer , Vector<RequestEvent>> dep_graph = new HashMap<>() ;
         Scanner scanner = new Scanner(s);
-        String line = scanner.nextLine();
-
-       // long id = Long.parseLong(line.split(" ")[0]);
+        String line ;
+        int count =0; // total number of events
         long id = MainActivity.exptno ;
-//		Bundle bundle = new Bundle();
         while (scanner.hasNextLine()) {
+            count++;
             line = scanner.nextLine();
-//		  bundle.putString(Constants.BROADCAST_MESSAGE,"LINE : '"+line+"'\n");
-//		  String retmsg = Threads.writeToLogFile(MainActivity.logfilename,"LINE1 : "+line+"\n");
-//		  Intent localIntent = new Intent(Constants.BROADCAST_ACTION).putExtra(Constants.BROADCAST_MESSAGE, "LINE2 : "+line);
-            Log.d(" HERE.. : " , line+"\n");
 
             RequestEvent event = parseLine(line);
-            if(event != null) events.add(event);
-            // process the line
+            if(event != null) {
+                event.event_id = count;
+                all_events.add(event);
+                if(event.url_dependency ==0)
+                independent_events.add(event);
+                else{
+                    if (dep_graph.containsKey(event.url_dependency))
+                        dep_graph.get(event.url_dependency).add(event);
+                    else {
+                        Vector<RequestEvent> l = new Vector<RequestEvent>();
+                        l.add(event);
+                        dep_graph.put(event.url_dependency, l);
+                    }
+                }
+
+            }
+
         }
         scanner.close();
-        msg+=" Return Event: "+ events.size() +"";
-       // Log.d("Return event", events.size() + "");
+        msg+=" Return Event: "+ independent_events.size() +"";
 
         Log.d(Constants.LOGTAG, msg);
         if(MainActivity.debugging_on) {
             Calendar cal = Calendar.getInstance();
             SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-            Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": Heartbeat : Initialized everything. Now starting Backgroundservices.");
-            //Threads.writeToLogFile(MainActivity.debugfilename , Utils.sdf.format(cal.getTime())+": Heartbeat : Initializing everything ");
+            Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": Parsing of the control file done.");
+
         }
 
-        return new Load(id, events);
+        return new Load(id,count,all_events, independent_events ,dep_graph );
     }
 }

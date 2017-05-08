@@ -15,12 +15,12 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Thank you for installing WiCroft!"
+        android:text="\t Thank you for installing WiCroft! \n\n\n\nSome Instructions:\n\n* Please turn off power-saving or battery optimizations,if any. They adversely impact wifi-services.\nGo to settings >> battery>> battery optimizations or power-saving. \n\n* Please keep your wifi on when instructed to. \n\n* Keep the app running in background during experiments. Don't swipe close it."
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="45dp" />
 
-
+<!--
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -29,4 +29,5 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="178dp" />
+-->
 </RelativeLayout>

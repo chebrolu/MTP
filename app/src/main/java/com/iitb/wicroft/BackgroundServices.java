@@ -41,26 +41,6 @@ public class BackgroundServices extends Service {
         return null;
     }
 
-    public void move_to_foreground(){
-
-        //final static int myID = 1234;
-
-        //The intent to launch when the user clicks the expanded notification
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendIntent = PendingIntent.getActivity(this, 0, intent, 0);
-
-        //This constructor is deprecated. Use Notification.Builder instead
-        Notification notice = new Notification(R.mipmap.ic_launcher, "Ticker text", System.currentTimeMillis());
-
-        //This method is deprecated. Use Notification.Builder instead.
-     //   notice.setLatestEventInfo(this, "Experiment Running", "PLease Don't force close app", pendIntent);
-
-        notice.flags |= Notification.FLAG_NO_CLEAR;
-        startForeground(1234, notice);
-
-    }
-
     @Override
     public void onCreate() {
         super.onCreate();
@@ -71,7 +51,7 @@ public class BackgroundServices extends Service {
             Calendar cal = Calendar.getInstance();
             SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
             Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": Backgroundservices: Starting event Runner Async Task.");
-            //Threads.writeToLogFile(MainActivity.debugfilename , Utils.sdf.format(cal.getTime())+": Heartbeat : Initializing everything ");
+
         }
         EventRunner runEvent = new EventRunner(ctx);
         runEvent.execute();

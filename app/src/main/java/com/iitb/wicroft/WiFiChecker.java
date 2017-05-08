@@ -36,8 +36,11 @@ public class WiFiChecker extends BroadcastReceiver {
             if (netInfo != null && netInfo.getType()==ConnectivityManager.TYPE_WIFI){
 
                 int ip;
+                String bssid ="";
                     try {
                          ip = MainActivity.wifimanager.getConnectionInfo().getIpAddress();
+                        bssid = MainActivity.wifimanager.getConnectionInfo().getBSSID();
+
                     } catch (Exception e) {
                         Log.d(Constants.LOGTAG, "Wifichecker: getIP() :  Exception caught " + e.toString());
                         ip =0;
@@ -45,13 +48,14 @@ public class WiFiChecker extends BroadcastReceiver {
 
 
                     MainActivity.myIp = Formatter.formatIpAddress(ip);
+                    MainActivity.bssid = bssid;
 
-                String msg = "IP:"+MainActivity.myIp;
+                String msg = "IP:"+MainActivity.myIp+" BSSID:"+MainActivity.bssid;
                 if(MainActivity.debugging_on) {
                     Calendar cal = Calendar.getInstance();
                     SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
                     if(MainActivity.running == false)
-                        Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI:CONNECTED "+msg+"\n");
+                        Threads.writeToLogFile("ConnectionLog" ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI:CONNECTED "+msg+"\n");
                     else
                         Threads.writeToLogFile(MainActivity.logfilename ,"\n** "+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI:CONNECTED "+msg+"\n");
 
@@ -70,12 +74,12 @@ public class WiFiChecker extends BroadcastReceiver {
                 When connection to AP is lost.
                  */
                // MainActivity.output.append("\n WifiReceiver Don't have Wifi Connection");
-                String msg = "Connection lost to AP";
+                String msg = "Connection lost to AP" + " IP: "+MainActivity.myIp+" BSSID: "+MainActivity.bssid;
                 if(MainActivity.debugging_on) {
                     Calendar cal = Calendar.getInstance();
                     SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
                     if(MainActivity.running == false)
-                        Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI:LOST: "+msg+"\n");
+                        Threads.writeToLogFile("ConnectionLog" ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI:LOST: "+msg+"\n");
                     else {
                         Threads.writeToLogFile(MainActivity.logfilename, "\n** " + format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime()) + ": DEBUG_CONNECTION_WIFI:LOST: " + msg + "\n");
 

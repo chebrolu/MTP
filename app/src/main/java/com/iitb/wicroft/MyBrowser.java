@@ -12,11 +12,16 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Vector;
 
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
+import android.content.Context;
 import android.util.Log;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -39,7 +44,8 @@ public class MyBrowser extends WebViewClient {
     public static String js;
 
 
-    int eventid;
+    public int eventid;
+    public static Context ctx;
     static StringBuffer logwriter  = new StringBuffer();
    // static StringBuilder logwriter  = new StringBuilder();
     boolean loggingOn;
@@ -47,11 +53,10 @@ public class MyBrowser extends WebViewClient {
     int totalResponseTime;
     Calendar pageStartTime = null;
 
-    MyBrowser(int id, String tbaseURL){
+    MyBrowser(int id, String tbaseURL ,Context my_ctx){
         eventid = id;
-
+        ctx = my_ctx;
         logwriter = new StringBuffer();
-       // logwriter = new StringBuilder();
         loggingOn = true;
         baseURL = tbaseURL;
         totalResponseTime = 0;
@@ -88,8 +93,8 @@ public class MyBrowser extends WebViewClient {
         Log.d(LOGTAG, "Inside SHOULD OVERRIDE URL LOADING : "+url+" \n");
 
         view.loadUrl(url);
-
-        return true; //return true means this webview has handled the request. Returning false means host(system browser) takes over control
+        return true;
+        //return true means this webview has handled the request. Returning false means host(system browser) takes over control
     }
 
 
@@ -106,7 +111,7 @@ public class MyBrowser extends WebViewClient {
         if (url.startsWith("http")) {
             //logwriter.append("Inside HTTP \n");
             //Log.d(LOGTAG + "-shouldInterceptRequest TRUE", "url= " +  url);
-            WebResourceResponse obj = getResource(url);
+            WebResourceResponse obj = getResource(eventid ,url);
             //  		logwriter.append("Inside SHOULD INTERCEPT Response: "+obj+" \n");
             return obj;
         }
@@ -116,41 +121,31 @@ public class MyBrowser extends WebViewClient {
 
 
 
-    public static WebResourceResponse postResource(String url){
-
+    public static WebResourceResponse postResource(int eventid ,String url){
         String ip_addr = Utils.getIP();
         String mac_addr = Utils.getMACAddress();
+        String my_port = "";
         String  []st = url.split("##");
         url = st[0];
-       // Threads.writeToLogFile(MainActivity.logfilename, "\n\n\nPOST "+url+" ");
-      //  logwriter.append("\n\n\nPOST "+url+" ");
-//   		int sizeOfData = Integer.parseInt(st[1]);
-//   		logwriter.append("\nURL : "+url);
-//   		logwriter.append("\nSize : "+sizeOfData);
 
-        HttpClient client = new DefaultHttpClient();
-        HttpGet request = null;
+       // HttpClient client = new DefaultHttpClient();
+      //  HttpGet request = null;
         String newURL = null;
         String debugfile_msg = " MyBrowser :";
         try {
             newURL = getURL(url).toString();
         } catch (MalformedURLException e1){
-
-            // TODO Auto-generated catch block
-           // e1.printStackTrace();
             //Log.d(LOGTAG + "-MALFORMED", "url malformed " + url);
             debugfile_msg+= "url malformed " + url + " Exception: "+ e1.toString();
             return null;
         } catch (URISyntaxException e1){
-            // TODO Auto-generated catch block
-           // e1.printStackTrace();
            // Log.d(LOGTAG + "-MALFORMED", "url malformed " + url);
             debugfile_msg+= "url malformed " + url + " Exception: "+ e1.toString();
             return null;
         }
 
         Calendar start = Utils.getServerCalendarInstance();
-        long startTime = start.getTimeInMillis();
+        long startTime= start.getTimeInMillis();
 
 
         try {
@@ -159,6 +154,8 @@ public class MyBrowser extends WebViewClient {
             connection.setReadTimeout(5000000); //5000 seconds timeout for reading from input stream
             connection.setConnectTimeout(5000000); //5000 seconds before connection can be established
 
+            my_port = Integer.toString(urlObj.getPort());
+            Log.d("MyBrowser" , "my_port "+my_port);
             //add reuqest header
             connection.setRequestMethod("POST");
 
@@ -167,11 +164,9 @@ public class MyBrowser extends WebViewClient {
             for (int i = 0;i<sizeOfData-5;i++){
                 _str += "A";
             }
+            startTime = start.getTimeInMillis();
 
-            //logwriter.append("Data : "+_str+" [POST Date Size : "+_str.length()+" ]");
             String urlParameters = "data=" + _str;
-           // Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST "+url+" Post_Data_Size:"+urlParameters.length()+" ");
-           // logwriter.append("Post_Date_Size:"+urlParameters.length()+" ");
             // Send post request
             connection.setDoOutput(true);
             DataOutputStream wr1 = new DataOutputStream(connection.getOutputStream());
@@ -181,26 +176,55 @@ public class MyBrowser extends WebViewClient {
 
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 //Log.d(Constants.LOGTAG, "getResource : " + " connection response code error");
-                debugfile_msg+="getResource : " + " connection response code error";
+                debugfile_msg+="PostResource : " + " connection response code error";
                 Calendar end = Utils.getServerCalendarInstance();
 
                 String startTimeFormatted =  Utils.sdf.format(start.getTime());
                 String endTimeFormatted =  Utils.sdf.format(end.getTime());
 
-/*				logwriter.append("ERROR Response_Time:" + (end.getTimeInMillis()-start.getTimeInMillis()) + " [Start_Time:" + startTimeFormatted + " End_Time:" + endTimeFormatted + "] " +
-						"Status_Code:" + connection.getResponseCode() + " " ); */
-
                 if(selective_logging == true && url.contains("bgtraffic"))
                     ;
-                else
-                Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST "+url+" Post_Data_Size:"+urlParameters.length()+
-                        " ERROR Start_Time:"+startTimeFormatted+" End_time:"+endTimeFormatted+ " Response_Time:" + (end.getTimeInMillis()-start.getTimeInMillis()) + " " +
-                        "Status_Code:" + connection.getResponseCode() + " IP:" + ip_addr + " " +
-                        "MAC:" + mac_addr + " " +
-                        "RSSI:" + MainActivity.rssi + "dBm " +
-                        "BSSID:" + MainActivity.bssid + " " +
-                        "SSID:" + MainActivity.ssid + " " +
-                        "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+                else {
+                    Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST " + url + " Post_Data_Size:" + urlParameters.length() +
+                            " ERROR Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (end.getTimeInMillis() - start.getTimeInMillis()) + " " +
+                            "Status_Code:" + connection.getResponseCode() + " IP:" + ip_addr + " " + 
+                            "MAC:" + mac_addr + " " +
+                            "RSSI:" + MainActivity.rssi + "dBm " +
+                            "BSSID:" + MainActivity.bssid + " " +
+                            "SSID:" + MainActivity.ssid + " " +
+                            "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+
+
+                    Log.d("testing" , "Handling event id : "+eventid);
+                    Queue dep_list = new LinkedList();
+                    int eid = eventid;
+                    // caught an error cancel all the events dependent on it , and write log
+                    do {
+                        if (MainActivity.load.url_dependency_graph.containsKey(eid)) {
+                            Log.d("testing" , "Dependencies are present  for event id : "+eventid);
+                            Iterator<RequestEvent> itr = MainActivity.load.url_dependency_graph.get(eventid).iterator();
+                            while (itr.hasNext()) {
+                                RequestEvent evt = itr.next();
+                                dep_list.add(evt.event_id);
+                                Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST " + evt.url +
+                                        " CANCELLED :due to URL dependency failure of event " + eid + " Start_Time:" + endTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time: 0" + " Error+msg:" +
+                                        " URL dependency in control file failed." + " IP:" + ip_addr + " " +
+                                        "MAC:" + mac_addr + " " +
+                                        "RSSI:" + MainActivity.rssi + "dBm " +
+                                        "BSSID:" + MainActivity.bssid + " " +
+                                        "SSID:" + MainActivity.ssid + " " +
+                                        "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+
+                                MainActivity.numDownloadOver++;
+                                Log.d("MyBrowser", "numDownloadover : " + MainActivity.numDownloadOver);
+                            }
+
+                        }
+                        if(!dep_list.isEmpty())
+                            eid = (Integer)dep_list.remove();
+                    }while(!dep_list.isEmpty());
+
+                }
 
                 Log.d(LOGTAG, "HandleEvent : " + " connection response code error");
             }
@@ -208,7 +232,7 @@ public class MyBrowser extends WebViewClient {
                 int fileLength = connection.getContentLength();
                 InputStream input = connection.getInputStream();
 
-                Log.d(Constants.LOGTAG, "getResource : " + " filelen " + fileLength);
+                Log.d(Constants.LOGTAG, "PostResource : " + " filelen " + fileLength);
 
                 ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
@@ -230,15 +254,30 @@ public class MyBrowser extends WebViewClient {
                 String endTimeFormatted =  Utils.sdf.format(end.getTime());
                 if(selective_logging == true && url.contains("bgtraffic"))
                     ;
-                else
-                Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST "+url+" Post_Data_Size:"+urlParameters.length()+
-                        " SUCCESS Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (endTime - startTime) + " " +
-                       "Received-Content-Length:" + fileLength + " IP:" + ip_addr + " " +
-                        "MAC:" + mac_addr + " " +
-                        "RSSI:" + MainActivity.rssi + "dBm " +
-                        "BSSID:" + MainActivity.bssid + " " +
-                        "SSID:" + MainActivity.ssid + " " +
-                        "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+                else {
+                    Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST " + url + " Post_Data_Size:" + urlParameters.length() +
+                            " SUCCESS Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (endTime - startTime) + " " +
+                            "Received-Content-Length:" + fileLength + " IP:" + ip_addr + " " +
+                            "MAC:" + mac_addr + " " +
+                            "RSSI:" + MainActivity.rssi + "dBm " +
+                            "BSSID:" + MainActivity.bssid + " " +
+                            "SSID:" + MainActivity.ssid + " " +
+                            "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+
+                    //success of the request , trigger all the alarms related to this request
+                    if (MainActivity.load.url_dependency_graph.containsKey(eventid)){
+                        Iterator< RequestEvent> itr = MainActivity.load.url_dependency_graph.get(eventid).iterator();
+                        while(itr.hasNext()) {
+                            RequestEvent evt = itr.next();
+                            EventAlarmReceiver.schedule_event(ctx, evt);
+                            Log.d("MyBrowser" , "Scheduling next alram" + evt.event_id);
+
+                        }
+
+                    }
+
+
+                }
 
                 InputStream stream = new ByteArrayInputStream(responseData);
                 WebResourceResponse wr = new WebResourceResponse("", "utf-8", stream);
@@ -256,7 +295,7 @@ public class MyBrowser extends WebViewClient {
             else
             Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST "+url+
                     " ERROR :"+e.toString()+" Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (endTime - startTime) + " Error+msg:" +
-                    e.getMessage() + " IP:" + ip_addr + " " +
+                    e.getMessage() + " IP:" + ip_addr + " " + 
                     "MAC:" + mac_addr + " " +
                     "RSSI:" + MainActivity.rssi + "dBm " +
                     "BSSID:" + MainActivity.bssid + " " +
@@ -265,7 +304,38 @@ public class MyBrowser extends WebViewClient {
 
            // e.printStackTrace();
             debugfile_msg+=" IOException caught in post resource "+e.toString();
-        }
+
+            /*
+             * caught an error cancel all the events dependent on it , and write log
+             */
+            Queue dep_list = new LinkedList();
+            int eid = eventid;
+            // caught an error cancel all the events dependent on it , and write log
+            do {
+                if (MainActivity.load.url_dependency_graph.containsKey(eid)) {
+                    Iterator<RequestEvent> itr = MainActivity.load.url_dependency_graph.get(eventid).iterator();
+                    while (itr.hasNext()) {
+                        RequestEvent evt = itr.next();
+                        dep_list.add(evt.event_id);
+                        Threads.writeToLogFile(MainActivity.logfilename, "\n\nPOST " + evt.url +
+                                " CANCELLED :due to URL dependency failure of event " + eid + " Start_Time:" + endTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time: 0" + " Error+msg:" +
+                                " URL dependency in control file failed." + " IP:" + ip_addr + " " + 
+                                "MAC:" + mac_addr + " " +
+                                "RSSI:" + MainActivity.rssi + "dBm " +
+                                "BSSID:" + MainActivity.bssid + " " +
+                                "SSID:" + MainActivity.ssid + " " +
+                                "LINK_SPEED:" + MainActivity.linkSpeed + "Mbps ");
+
+                        MainActivity.numDownloadOver++;
+                        Log.d("MyBrowser", "numDownloadover : " + MainActivity.numDownloadOver);
+                    }
+
+                }
+                if(!dep_list.isEmpty())
+                    eid = (Integer)dep_list.remove();
+            }while(!dep_list.isEmpty());
+
+            }
 
         Log.d(Constants.LOGTAG, debugfile_msg);
         if(MainActivity.debugging_on) {
@@ -277,20 +347,16 @@ public class MyBrowser extends WebViewClient {
     }
 
 
-    public static WebResourceResponse getResource(String url){
-        //Log.d(LOGTAG, "getJPG for url " + url);
-
-
+    public static WebResourceResponse getResource(int eventid , String url){
         String ip_addr = Utils.getIP();
+        String my_port ="";
         String mac_addr = Utils.getMACAddress();
+        Log.d("Debugging " , " **************printing the url here******* url : "+url);
         if(url.endsWith("##POST")){
 
-            WebResourceResponse obj = postResource(url);
-            //logwriter.append("POST Response: "+obj+" \n");
+            WebResourceResponse obj = postResource(eventid ,url);
             return obj;
         }
-
-//       logwriter.append("Inside GET RESOURCE : "+url+"\n");
 
         String []st = url.split("##");
         url = st[0];
@@ -314,9 +380,6 @@ public class MyBrowser extends WebViewClient {
             Log.d(LOGTAG + "-MALFORMED", "url malformed " + url);
             return null;
         }
-
-
-
         Calendar start = Utils.getServerCalendarInstance();
         long startTime = start.getTimeInMillis();
 
@@ -327,6 +390,7 @@ public class MyBrowser extends WebViewClient {
             connection.setConnectTimeout(10000); //10 seconds before connection can be established
 
             connection.connect();
+            my_port = Integer.toString( urlObj.getPort() );
 
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 Log.d(Constants.LOGTAG, "getResource : " + " connection response code error");
@@ -372,7 +436,7 @@ public class MyBrowser extends WebViewClient {
                 String endTimeFormatted =  Utils.sdf.format(end.getTime());
 
                 Threads.writeToLogFile(MainActivity.logfilename, " SUCCESS Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (endTime - startTime) + " " +
-                        "Received-Content-Length:" + fileLength + " IP:" + ip_addr + " " +
+                        "Received-Content-Length:" + fileLength + " IP:" + ip_addr + " " + 
                        "MAC:" + mac_addr + " " +
                        "RSSI:" + MainActivity.rssi + "dBm " +
                        "BSSID:" + MainActivity.bssid + " " +
@@ -403,7 +467,7 @@ public class MyBrowser extends WebViewClient {
             String startTimeFormatted =  Utils.sdf.format(start.getTime());
             String endTimeFormatted =  Utils.sdf.format(end.getTime());
             Threads.writeToLogFile(MainActivity.logfilename, "ERROR Start_Time:" + startTimeFormatted + " End_time:" + endTimeFormatted + " Response_Time:" + (endTime - startTime) + " " +
-                   " Error_msg:" + e.getMessage() + " IP:" + ip_addr + " " +
+                   " Error_msg:" + e.getMessage() + " IP:" + ip_addr + " " + 
                     "MAC:" + mac_addr + " " +
                     "RSSI:" + MainActivity.rssi + "dBm " +
                     "BSSID:" + MainActivity.bssid + " " +
@@ -432,6 +496,10 @@ public class MyBrowser extends WebViewClient {
     @Override
     public void onPageFinished(WebView view, String url) {
 
+        Calendar cal = Calendar.getInstance();
+        SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
+        Log.d("Debugging" , format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime()) + "on page finished url : "+baseURL);
+
         String debugfile_msg ="MyBrowser: On page finished ";
 
             //  		logwriter.append("Inside On PAGE Finished : "+url+"\n");
@@ -439,8 +507,8 @@ public class MyBrowser extends WebViewClient {
         debugfile_msg+="called for url " + baseURL;
         Log.d(Constants.LOGTAG, debugfile_msg);
         if(MainActivity.debugging_on) {
-            Calendar cal = Calendar.getInstance();
-            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
+            cal = Calendar.getInstance();
+            format1 = new SimpleDateFormat("yyyy-MM-dd");
             Threads.writeToLogFile(MainActivity.debugfilename, format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime()) + debugfile_msg);
         }
 
@@ -489,6 +557,7 @@ public class MyBrowser extends WebViewClient {
                             response = ConnectionManager.writeToStream(expOver);
                             Log.d(LOGTAG, "Experiment Over Signal sent to server:" + Integer.toString(response));
 
+                            MainActivity.running = false;
                             //added just to make sure that the expt is over.. locally..
 
                            boolean was_running =  MainActivity.context.stopService(MainActivity.startExperimentIntent);

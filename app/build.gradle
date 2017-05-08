@@ -8,8 +8,8 @@ android {
         applicationId "com.iitb.wicroft"
         minSdkVersion 8
         targetSdkVersion 21
-        versionCode 3
-        versionName "1.2"
+        versionCode 9
+        versionName "1.8"
         multiDexEnabled true
     }
 

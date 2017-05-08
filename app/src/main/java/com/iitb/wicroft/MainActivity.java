@@ -32,7 +32,6 @@ public class MainActivity extends AppCompatActivity {
 
    // public static String serverip = "10.129.28.176";
     public static int serverport = 8001;
-   // public static int sessionid = 1;
     public static int port = 8080;
 
     public static boolean debugging_on = true;
@@ -41,9 +40,7 @@ public class MainActivity extends AppCompatActivity {
     static File logDir; //directory containing log files
     static File controlDir; //dirctory containing control files
 
-   // public static boolean registered = false;
     public static Socket serverConnection = null;
-   // public static String last_heartbeat = null;
     public static int heartbeat_duration = 60; //by default the device sends one heartbeat per 60 seconds.
     public static DataInputStream dis = null;
     public static DataOutputStream dout =null;
@@ -57,8 +54,9 @@ public class MainActivity extends AppCompatActivity {
     static boolean running = false; //whether scheduling alarms and downloading is going on
     static boolean heartbeat_enabled = true ;
     static int numDownloadOver = 0; //indicates for how many events download in thread is over
-
-
+    static boolean app_in_foreground = false;
+    static boolean move_to_background = false;
+    static boolean is_running_in_foreground = false;
     static Load load = null; //this stores info about current experiment such as exp id and all events(get requests) with resp scheduled time
     static int currEvent = 0; //which event is currently being processed
 

@@ -1,13 +1,18 @@
 package com.iitb.wicroft;
 
 import android.app.AlarmManager;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
 import android.os.AsyncTask;
+import android.os.PowerManager;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import java.util.Calendar;
 import java.io.File;
@@ -26,7 +31,7 @@ import android.content.pm.PackageManager;
 
 public class EventRunner extends AsyncTask< Void , Void, Void> {
     final Context ctx;
-    public static AlarmManager hb_restartalarm;
+    public static AlarmManager my_am;
 
     public EventRunner(Context app_ctx) {
         ctx = app_ctx;
@@ -55,6 +60,10 @@ public class EventRunner extends AsyncTask< Void , Void, Void> {
             } else {
                 msg += "Data Received from Server : "+data;
 
+                Calendar cal1 = Calendar.getInstance();
+                SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd");
+                Threads.writeToLogFile(MainActivity.debugfilename , format2.format(cal1.getTime()) + " " + Utils.sdf.format(cal1.getTime())+ " Event Runner : Data received : "+data);
+
                 Map<String, String> jsonMap = Utils.ParseJson(data);
                 String action = jsonMap.get(Constants.action);
                // Log.d(Constants.LOGTAG, "###  ### ### serverTimeDelta = " + MainActivity.serverTimeDelta / 1000 + " seconds");
@@ -62,161 +71,74 @@ public class EventRunner extends AsyncTask< Void , Void, Void> {
 
                 if (action.compareTo(Constants.action_connectToAp) == 0) {
 
-                    boolean flag =true;
+
+
                     String _ssid = jsonMap.get(Constants.ssid);
-                    String _bssid = jsonMap.get(Constants.bssid);
+                    String _timer = jsonMap.get(Constants.ap_timer);
                     String _username = jsonMap.get(Constants.username);
                     String _password = jsonMap.get(Constants.password);
                     String _type = jsonMap.get(Constants.security);
-                    // WifiManager mgr =  (WifiManager)getSystemService(Context.WIFI_SERVICE);
 
-                    if (_ssid.length() == 0) {
-                        msg += " NULL values in change AP config";
+                    Calendar cal = Calendar.getInstance();
+                    SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
+                    Threads.writeToLogFile("ConnectionLog" , format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime())+ " ssid : "+_ssid+" timer: "+_timer +" username : "+_username+ " password: "+_password+"type : "+_type );
+                    //start wait timer
+                    cal = Calendar.getInstance();
+                    Intent intentAlarm = new Intent(ctx, ChangeAp.class);
+                    long timeout = Integer.parseInt(_timer)*1000 ;
+                    Log.d(Constants.LOGTAG, "THE AP wait timer is : " + timeout);
+                    intentAlarm.putExtra("ssid" , _ssid);
+
+                    intentAlarm.putExtra("username" , _username);
+                    intentAlarm.putExtra("password" ,_password);
+                    intentAlarm.putExtra("type" , _type);
+
+                    PendingIntent APintent = PendingIntent.getBroadcast(ctx, 1986, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
+                   // APintent.putExtra("fileid", "" + jsonMap.get(Constants.fileid).toString());
+
+                    my_am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis() + timeout,APintent );
+
+
+
+
+                }
+                else if(action.compareTo(Constants.action_bringAppInForeground)==0){
+
+                    int duration = Integer.parseInt(jsonMap.get("duration")); //duration in seconds
+                    long foreground_timeout =duration*1000;
+                    //Intent startServiceIntent = new Intent(ctx, ForegroundAppService.class);
+                    //ctx.startService(startServiceIntent);
+                    MainActivity.app_in_foreground = true;
+                    Log.d("EventRunner" , " I have started Hearbeat service in Foreground.!!");
+                    //start heartbeat service as normal
+                    Intent startServiceIntent = new Intent(ctx, Heartbeat.class);
+                    ctx.startService(startServiceIntent);
+                    Log.d("Eventrunner ", " New service started*********..");
+
+
+
+
+                    //set an alarm for x seconds; the app will go to background after this much time
+
+                    Calendar cal = Calendar.getInstance();
+                    Intent intentAlarm = new Intent(ctx, BackgroundAppReceiver.class);
+
+
+                    if(MainActivity.is_running_in_foreground==true){
+                        //cancel the previous alarm before setting a new one.
+                        my_am.cancel( PendingIntent.getBroadcast(ctx, 1112, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
                     }
+                    Log.d(Constants.LOGTAG, "THE Foreground timer is : " + foreground_timeout);
+                    my_am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis() + foreground_timeout, PendingIntent.getBroadcast(ctx, 1112, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
 
-                    if (_ssid.length() == 0 && _bssid.length() == 0 && _username.length() == 0 && _password.length() == 0 && _type.length() == 0) {
-                        msg += " NULL values inchange AP config";
-                    } else {
-                        /*
-                        output.append("\nSSID : "+_ssid);
-                        output.append("\nBSSID : " + _bssid);
-                        output.append("\nUSRNAME : "+_username);
-                        output.append("\nPASSWORD : " + _password);
-                        output.append("\nTYPE : " + _type);
-*/
-                        WifiInfo info = MainActivity.wifimanager.getConnectionInfo();
-                        String currentBssid = info.getBSSID();
-                        int currentNetworkId = 0;
-
-                        if (currentBssid.equalsIgnoreCase(_bssid)) {
-                            msg += "\n Already Connected to Same WiFi Network";
-                        } else {
-
-                            currentNetworkId = info.getNetworkId();
-                            // WifiManager mgr =  (WifiManager)getSystemService(Context.WIFI_SERVICE);
-                            List<WifiConfiguration> list = MainActivity.wifimanager.getConfiguredNetworks();
-                            for (WifiConfiguration i : list) {
-                                if (i.SSID.equalsIgnoreCase(_ssid) ) {
-                                    MainActivity.wifimanager.removeNetwork(i.networkId);
-                                    MainActivity.wifimanager.saveConfiguration();
-                                    msg += "\n Old network conf deleted";
-                                }
-                            }
-
-
-                            WifiConfiguration conf = new WifiConfiguration();
-                            conf.SSID = "\"" + _ssid + "\"";
-                            conf.BSSID = _bssid;
-
-
-                            if (_type.equalsIgnoreCase("open")) { // open network
-
-                                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-                                conf.allowedAuthAlgorithms.clear();
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-
-                            } else if (_type.equalsIgnoreCase("wep")) { // wep network
-
-                                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-                                conf.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
-                                conf.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-                                conf.wepKeys[0] = "\"".concat(_password).concat("\"");
-                                conf.wepTxKeyIndex = 0;
-
-                            } else if (_type.equalsIgnoreCase("wpa-psk")) { // wpa psk network
-
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-                                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-                                conf.preSharedKey = "\"".concat(_password).concat("\"");
-
-                            } else if (_type.equalsIgnoreCase("eap")) {  // eap network
-
-
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                                conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-
-                                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_EAP);
-                                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.IEEE8021X);
-                                conf.enterpriseConfig.setIdentity(_username.toString());
-                                conf.enterpriseConfig.setPassword(_password.toString());
-                                conf.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.PEAP);
-                                conf.enterpriseConfig.setPhase2Method(WifiEnterpriseConfig.Phase2.MSCHAPV2);
-
-
-                            } else {
-                                msg += "\nInvalid Type";
-                                flag =false;
-                            }
-
-                            if(flag==true) {
-                                try {
-
-                                    int netId = MainActivity.wifimanager.addNetwork(conf);
-                                    if (netId == -1) {
-                                        msg += "\n Adding Conf to Network Failed";
-                                        MainActivity.wifimanager.enableNetwork(currentNetworkId, true);
-                                        msg += "\n Connecting to previous WiFi!";
-                                    } else {
-                                        msg += "\n Adding Conf to Network Success";
-                                        MainActivity.wifimanager.disconnect();
-                                        String msgconn = "Connection lost to AP in EventRunner";
-                                        if(MainActivity.debugging_on) {
-                                            Calendar cal = Calendar.getInstance();
-                                            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-                                            Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": DEBUG_CONNECTION_WIFI_CHANGEAP:LOST: "+msgconn+"\n");
-
-                                        }
-                                        MainActivity.wifimanager.saveConfiguration();
-                                        boolean result = MainActivity.wifimanager.enableNetwork(netId, true);
-                                        if (!result) {
-                                            MainActivity.wifimanager.enableNetwork(currentNetworkId, true);
-                                            msg += "\n Connecting to previous WiFi!!";
-                                        }
-
-
-
-                                    }
-
-
-                                } catch (Exception ex) {
-                                    msg += "\n Exception : " + ex.toString();
-                                }
-                            }
-
-                        }
-                    }
 
 
                 }
 
                 else if (action.compareTo(Constants.getLogFiles) == 0) {
                     msg +="\n getLogFiles Action received ";
+                    Log.d("Eventrunner ", " get log files msg received..");
+
 
                     try {
                         final String logFileName = Long.toString(MainActivity.load.loadid);
@@ -242,6 +164,7 @@ public class EventRunner extends AsyncTask< Void , Void, Void> {
                         t.start();
 
                     }
+
 
                 }
                 else if(action.compareTo(Constants.action_controlFile) == 0 ){
@@ -273,7 +196,7 @@ public class EventRunner extends AsyncTask< Void , Void, Void> {
                     Intent intentAlarm = new Intent(ctx, restartHB.class);
                     long restart_hb_timeout = Integer.parseInt(jsonMap.get(Constants.hb_timer))*1000 ;
                     Log.d(Constants.LOGTAG, "THE HB restart timer is : " + restart_hb_timeout);
-                    hb_restartalarm.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis() + restart_hb_timeout, PendingIntent.getBroadcast(ctx, 1, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
+                    my_am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis() + restart_hb_timeout, PendingIntent.getBroadcast(ctx, 1, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
 
                     MyBrowser.selective_logging = Boolean.parseBoolean(jsonMap.get(Constants.selectiveLog));
 
@@ -328,9 +251,46 @@ public class EventRunner extends AsyncTask< Void , Void, Void> {
                 else if(action.compareTo(Constants.action_updateAvailable) == 0){
                     //start the activity here
                   //  Notification.show(ctx ,Store.GOOGLE_PLAY, 7786);
+
+
+
+
+                    Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                    NotificationCompat.Builder mBuilder =
+                            new NotificationCompat.Builder(ctx)
+                                    .setSmallIcon(R.mipmap.wicroft)
+                                    .setContentTitle("WiCroft : Update Available")
+                                    .setContentText("Click here to update to latest version");
+
+                    mBuilder.setSound(alarmSound);
+                    mBuilder.setAutoCancel(true);
+                    final String appPackageName = ctx.getPackageName(); // getPackageName() from Context or Activity object
+                    Intent myIntent;
+
+                    try {
+                        myIntent =new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + appPackageName));
+
+                    } catch (android.content.ActivityNotFoundException anfe) {
+                        myIntent =new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + appPackageName));
+
+                    }
+
+                    myIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                    PendingIntent intent2 = PendingIntent.getActivity(ctx, 1,myIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    mBuilder.setContentIntent(intent2);
+                    NotificationManager mNotificationManager = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+
+                    mNotificationManager.notify(1, mBuilder.build());
+
+
+
+
+                    /*
                     Intent startUpdateService = new Intent(ctx, UpdateService.class);
                     ctx.startService(startUpdateService);
                     Log.d("EventRunner" , " started the service...");
+                    */
 
                 }
 

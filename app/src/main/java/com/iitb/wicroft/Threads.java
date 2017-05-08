@@ -55,7 +55,7 @@ public class Threads {
         try {
             mpEntity.addPart("expID", new StringBody(logFileName));
 
-            if(logFileName.equals(MainActivity.debugfilename)) {
+            if(logFileName.equals(MainActivity.debugfilename) || logFileName.equals("ConnectionLog") ) {
 
                 SimpleDateFormat s = new SimpleDateFormat("ddMMyyyyhhmmss");
                 String format = s.format(new Date());
@@ -75,7 +75,8 @@ public class Threads {
                     logFile.delete(); //now deleting log file
                 }
                 else{
-                    Log.d(Constants.LOGTAG, "Sending Log file " + logFileName + " failed");
+
+                    Log.d(Constants.LOGTAG, "Sending Log file " + logFileName + " failed with statuscode : "+statusCode);
                 }
             } catch (ClientProtocolException e) {
                 e.printStackTrace();
@@ -125,11 +126,14 @@ public class Threads {
 
     static synchronized String saveControlFile(String controlfilename, String controlinfo){
         File controlfile = new File(MainActivity.controlDir, controlfilename);
+        if(controlfile.exists())
+            controlfile.delete();
         BufferedWriter controlwriter = null;
         String msg = "";
         try {
             controlwriter = new BufferedWriter(new FileWriter(controlfile, true));
-            controlwriter.append(controlinfo);
+            controlwriter.write(controlinfo);
+           // controlwriter.append(controlinfo);
             controlwriter.close();
             msg += " control file write success\n";
         } catch (IOException e1) {
@@ -149,7 +153,7 @@ public class Threads {
         File controlFile = new File(controlFilePath);
         if(!controlFile.exists()){
             Log.d(Constants.LOGTAG, "getcontrolFile : File not found " + controlFilePath);
-           // return 200; //already sent sometime earlier
+
         }
 
         try {
@@ -175,7 +179,7 @@ public class Threads {
     //completes request specified in given event(identified by eventid)
     //also writes log to logfile about progress
     //if all downloads over, send the log file
-    static int HandleEvent(int eventid, final Context context){
+    static int HandleEvent(RequestEvent event, final Context context){
         //Log file will be named   <eventid> . <loadid>
         if(!MainActivity.running){
             Log.d(Constants.LOGTAG, "HandleEvent : But experiment not running");
@@ -189,7 +193,7 @@ public class Threads {
             return -1;
         }
 
-        RequestEvent event = currentLoad.events.get(eventid);
+        //RequestEvent event = currentLoad.events.get(eventid);
         String logfilename = "" + currentLoad.loadid;
 
 
@@ -209,7 +213,7 @@ public class Threads {
         try {
             URL url = new URL(event.url);
 
-            logwriter.append("details: " + currentLoad.loadid + " " + eventid + " SOCKET" + "\n");
+            logwriter.append("details: " + currentLoad.loadid + " " + event.event_id + " SOCKET" + "\n");
             logwriter.append("url: " + url + "\n");
 
             filename = event.url.substring(event.url.lastIndexOf('/') + 1);
@@ -248,6 +252,7 @@ public class Threads {
 
                 // download the file
                 input = connection.getInputStream();
+                Log.d(Constants.LOGTAG,"storinghere... "+Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename);
                 output = new FileOutputStream(Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename);
 
                 byte data[] = new byte[4096];
@@ -314,7 +319,7 @@ public class Threads {
                 connection.disconnect();
         }
 
-        String msg = "GET #" + eventid + " File : " + filename;
+        String msg = "GET #" + event.event_id + " File : " + filename;
         if(!success) msg += "FAILED connection problem/timeout";
         else msg += " SUCCESS with RT=" + responseTime + "\n";
 
@@ -334,7 +339,19 @@ public class Threads {
             String retmsg = writeToLogFile(logfilename, logString); //write the log to file. This is a synchronized operation, only one thread can do it at a time
             msg += retmsg;
 
-           // Send stop experiment..
+            int response = 0;
+            String expOver = Utils.getExpOverJson();
+            // String expOver = "{\"action\":\"expOver\",\"ip\":" + MainActivity.myIp + "\",\"port\":" + MainActivity.myPort + "\",\"macAddress\":" + Utils.getMACAddress() + "\"}";
+            response = ConnectionManager.writeToStream(expOver);
+            Log.d(Constants.LOGTAG, "Experiment Over Signal sent to server:" + Integer.toString(response));
+
+            MainActivity.running = false;
+            //added just to make sure that the expt is over.. locally..
+
+            boolean was_running =  MainActivity.context.stopService(MainActivity.startExperimentIntent);
+            Log.d(Constants.LOGTAG, " Stopping the service from my browser.. : "+ was_running);
+
+            // Send stop experiment..
             ConnectionManager.writeToStream(Constants.experimentOver);
 
         }

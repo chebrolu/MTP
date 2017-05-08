@@ -28,6 +28,7 @@ public class Constants {
 	static final String action_hbDuration = "hbDuration";
 	static final String action_changeServer = "action_changeServer";
 	static final String action_updateAvailable = "action_updateAvailable";
+	static final String action_bringAppInForeground = "wakeup";
 	static final String serverip = "serverip";
 	static final String connport = "connectionport";
 	static final String serverport = "serverport";
@@ -44,6 +45,7 @@ public class Constants {
 
 	static final String rssi = "rssi";
 	static final String bssid = "bssid";
+	static final String ap_timer = "timer";
 	static final String ssid = "ssid";
 	static final String linkSpeed = "linkSpeed";
 	static final String hearbeat_duration = "hearbeat_duration";

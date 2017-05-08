@@ -28,11 +28,6 @@ public class UpdateService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("UpdateService" , " Service started");
 
-/*
-        Intent dialogIntent = new Intent(this, UpdateChecker.class);
-        dialogIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(dialogIntent);
-*/
 
         Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         NotificationCompat.Builder mBuilder =
@@ -42,6 +37,7 @@ public class UpdateService extends Service {
                         .setContentText("Click here to update to latest version");
 
         mBuilder.setSound(alarmSound);
+        mBuilder.setAutoCancel(true);
         final String appPackageName = getPackageName(); // getPackageName() from Context or Activity object
         Intent myIntent;
 
@@ -61,23 +57,6 @@ public class UpdateService extends Service {
 
         mNotificationManager.notify(1, mBuilder.build());
 
-
-
-/*
-
-        final String appPackageName = getPackageName(); // getPackageName() from Context or Activity object
-
-        try {
-            Intent myIntent =new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + appPackageName));
-            myIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(myIntent);
-        } catch (android.content.ActivityNotFoundException anfe) {
-            Intent myIntent =new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + appPackageName));
-            myIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(myIntent);
-
-        }
-*/
         return super.onStartCommand(intent, flags, startId);
     }
 

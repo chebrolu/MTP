@@ -46,7 +46,8 @@ public class DownloaderService extends IntentService{
         //Log.d(Constants.LOGTAG, "DownloaderService : just entered");
         Bundle bundle = intent.getExtras();
         final int eventid = bundle.getInt("eventid");
-        final RequestEvent event = MainActivity.load.events.get(eventid);
+        Log.d(" Downloader Service ", "Event id = "+eventid);
+        final RequestEvent event = MainActivity.load.events.get(eventid-1);
 
         //final RequestEvent e = MainActivity.load.events.get(eventid);
 
@@ -57,7 +58,7 @@ public class DownloaderService extends IntentService{
 
             Runnable r = new Runnable() {
                 public void run() {
-                    Threads.HandleEvent(eventid, getApplicationContext());
+                    Threads.HandleEvent(event, getApplicationContext());
                 }
             };
 
@@ -80,7 +81,7 @@ public class DownloaderService extends IntentService{
                 public void run() {
 
                     WebView webview = new WebView(getApplicationContext());
-                    webview.setWebViewClient(new MyBrowser(eventid, event.url));
+                    webview.setWebViewClient(new MyBrowser(eventid, event.url,getApplicationContext()));
                     // WebSettings settings = webview.getSettings();
                     //settings.setJavaScriptEnabled(true);
                     //settings.setJavaScriptEnabled(false);

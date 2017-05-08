@@ -116,6 +116,33 @@ public class Utils {
     }
     */
 
+    private static String capitalize(String s) {
+        if (s == null || s.length() == 0) {
+            return "";
+        }
+        char first = s.charAt(0);
+        if (Character.isUpperCase(first)) {
+            return s;
+        } else {
+            return Character.toUpperCase(first) + s.substring(1);
+        }
+    }
+
+    public static String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        } else {
+            return capitalize(manufacturer) + " " + model;
+        }
+    }
+
+
+
+
+
+
     public static String getIP(){
         WifiInfo info;
         int ip;
@@ -335,6 +362,10 @@ public class Utils {
         obj.put("action", "heartBeat");
         obj.put("ip", MainActivity.myIp);
         obj.put("appversion", getAppVersion()) ;
+        obj.put("androidVersion" , Integer.toString( Build.VERSION.SDK_INT ));
+        obj.put("isInForeground", String.valueOf(MainActivity.is_running_in_foreground));
+        obj.put("devicename", getDeviceName()) ;
+
         if(MainActivity.serverConnection == null) {
             obj.put("port", "");
         }

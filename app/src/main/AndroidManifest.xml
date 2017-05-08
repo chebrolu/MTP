@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.iitb.wicroft" android:installLocation="internalOnly">
-    <!--android:installLocation="internalOnly" so that the app is not closed when memeory is low.. -->
+    <!--android:installLocation="internalOnly" so that the app is not closed when memory is low.. -->
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!--to start the app when the phone reboots        -->
+    <!--to start the app when the phone reboots  -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!--to get email address of the user       -->
+    <!--to get email address of the user   -->
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
 
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" >
     </uses-permission>
@@ -77,6 +78,10 @@
 
 
         <service
+            android:name=".ForegroundAppService"
+            android:exported="false" />
+
+        <service
             android:name=".DeviceInfo"
             android:exported="false" />
 
@@ -99,9 +104,15 @@
 
         <receiver android:name=".EventAlarmReceiver" >
         </receiver>
+        <receiver android:name=".ChangeAp" >
+        </receiver>
+        <receiver android:name=".BackgroundAppReceiver" >
+        </receiver>
         <receiver android:name=".ResponseReceiver" >
         </receiver>
         <receiver android:name=".restartHB">
+        </receiver>
+        <receiver android:name=".EnsureWifiConnection">
         </receiver>
         <receiver android:name=".WifiScan" >
             <intent-filter>
