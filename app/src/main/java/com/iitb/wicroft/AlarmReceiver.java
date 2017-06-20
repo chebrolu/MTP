@@ -12,9 +12,9 @@ import android.util.Log;
 /**
  * Created by swinky on 16/6/16.
  */
-public class AlarmReceiver extends WakefulBroadcastReceiver {
 
-    public static final int REQUEST_CODE = 123;
+//Heartbeat alarm receiver: (tiggered every minute)
+public class AlarmReceiver extends WakefulBroadcastReceiver {
 
     // Prevents instantiation
     public AlarmReceiver() {
@@ -22,23 +22,16 @@ public class AlarmReceiver extends WakefulBroadcastReceiver {
 
     @Override
     public void onReceive(final Context context, Intent intent) {
-        Bundle bundle = intent.getExtras();
-        String msg = "Alarm Received. ";
 
-
-        //Log.d("AlarmReceiver : " , "DeviceInfoclass service start");
-        Log.d(Constants.LOGTAG, " Alram Receiver entered.....");
-
+        String msg = "Alarm Received.  ";
         if ("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())) {
             Log.d(Constants.LOGTAG, " Alarm receiver BOOT_COMPLETE.....");
             msg += "BOOT_COMPLETE. Starting Utils.NewConnection().execute() . Starting Heartbeat Service. ";
-
+            Threads.writeLog(Constants.debugLogFilename, msg);
             new Utils.NewConnection().execute();
-
             // Set the alarm here.
-            Intent startServiceIntent = new Intent( context , Heartbeat.class);
+            Intent startServiceIntent = new Intent( context , MainService.class);
             context.startService( startServiceIntent);
-
             return;
         }
 
@@ -51,16 +44,8 @@ public class AlarmReceiver extends WakefulBroadcastReceiver {
         Intent callingIntent = new Intent(context, DeviceInfo.class);
         startWakefulService(context,callingIntent);
 
-        Log.d(Constants.LOGTAG, " Alram Receiver exited.....");
-
-
-        if(MainActivity.debugging_on) {
-            Calendar cal = Calendar.getInstance();
-            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-            Threads.writeToLogFile(MainActivity.debugfilename ,format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+msg);
-        }
-
-
+        Log.d(Constants.LOGTAG,msg);
+        Threads.writeLog(Constants.debugLogFilename, msg);
     }
 
 }

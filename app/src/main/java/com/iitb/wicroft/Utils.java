@@ -5,6 +5,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 //import android.app.ActivityManager;
 //import android.content.Context;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -58,20 +60,14 @@ public class Utils {
         return sdf.format(cal.getTime());
     }
 
-
-
     //pings the given network
-    public static boolean ping(String net){
-       // Log.d(Constants.LOGTAG, "ping() : entered.");
+    public static boolean ping(String net){;
         Runtime runtime = Runtime.getRuntime();
         try
         {
             String pingcommand = "/system/bin/ping -c 1 " + net;
-          //  Log.d(Constants.LOGTAG, "ping() command : " + pingcommand);
-
             Process  mIpAddrProcess = runtime.exec(pingcommand);
             int exitValue = mIpAddrProcess.waitFor();
-          //  Log.d(Constants.LOGTAG, "ping() mExitValue " + exitValue);
             if(exitValue==0){ //exit value 0 means normal termination
                 return true;
             }else{
@@ -104,18 +100,6 @@ public class Utils {
     }
 
 
-    /*
-    public boolean isMyServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) Context.getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-    */
-
     private static String capitalize(String s) {
         if (s == null || s.length() == 0) {
             return "";
@@ -138,37 +122,27 @@ public class Utils {
         }
     }
 
-
-
-
-
-
-    public static String getIP(){
+    public static String getIP(WifiManager wifimanager){
         WifiInfo info;
-        int ip;
+        int ip=0;
         int port;
 
         try {
-            info = MainActivity.wifimanager.getConnectionInfo();
+            info = wifimanager.getConnectionInfo();
             ip = info.getIpAddress();
 
         } catch (Exception e) {
             Log.d(Constants.LOGTAG, "Utils: getIP() :  Exception caught " + e.toString());
             ip =0;
-            if(MainActivity.debugging_on) {
-                Calendar cal = Calendar.getInstance();
-                SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-                Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": Utils : getIp() " + e.toString());
-                //Threads.writeToLogFile(MainActivity.debugfilename , Utils.sdf.format(cal.getTime())+": Heartbeat : Initializing everything ");
-            }
+            Threads.writeLog(Constants.debugLogFilename," Utils : getIp() " + e.toString());
+
         }
-       // MainActivity.myIp = Integer.toString(ip);
-               MainActivity.myIp = Formatter.formatIpAddress(ip);
+
         return Formatter.formatIpAddress(ip);
     }
 
 
-//***** for android 6...
+//used for getting mac for android 6 and above , which otherwise returns a constant string 02:00:00:00:00:00
     public static String getMacAddr() {
         try {
             List<NetworkInterface> all = Collections.list(NetworkInterface.getNetworkInterfaces());
@@ -199,11 +173,11 @@ public class Utils {
 
 
 
-    public static String getMACAddress(){
+    public static String getMACAddress(WifiManager wifimanager){
         WifiInfo info;
         String address;
         try {
-            info = MainActivity.wifimanager.getConnectionInfo();
+            info = wifimanager.getConnectionInfo();
             address = info.getMacAddress();
         } catch (Exception e) {
             e.printStackTrace();
@@ -216,20 +190,16 @@ public class Utils {
             String macAddress = getMacAddr(); //version 6
 
             Log.d(Constants.LOGTAG, "Getting mac for version 6 and above : " + macAddress);
-            // String macAddress = android.provider.Settings.Secure.getString(MainActivity.context.getContentResolver(), "bluetooth_address");
 
             return macAddress;
         } else {
-            // Implement this feature without material design
             return address;
         }
 
-
-
     }
 
-    public static String getWifiStrength(){
-        WifiInfo info = MainActivity.wifimanager.getConnectionInfo();
+    public static String getWifiStrength(WifiManager wifimanager){
+        WifiInfo info = wifimanager.getConnectionInfo();
         int level;
 
         try {
@@ -319,27 +289,32 @@ public class Utils {
     }
 
 
-    public static String getExpOverJson()
+    public static String getExpOverJson(WifiManager wifimanager)
     {
         JSONObject obj = new JSONObject();
 
         obj.put("action", "expOver");
-        obj.put("exp", Long.toString(MainActivity.load.loadid));
-        obj.put("ip", MainActivity.myIp);
-        obj.put("port", Integer.toString(MainActivity.myPort));
-        obj.put("macAddress" ,Utils.getMACAddress());
+        obj.put("exp", MainActivity.load.loadid);
+        obj.put("ip", getIP(wifimanager));
+        if(MainActivity.serverConnection == null) {
+            obj.put("port", "");
+        }
+        else {
+
+            obj.put("port", Integer.toString(MainActivity.serverConnection.getLocalPort()));
+        }
+        obj.put("macAddress" ,Utils.getMACAddress(wifimanager));
         String jsonString = obj.toJSONString();
         return  jsonString;
 
     }
 
-    public static String getAppVersion(){
+    public static String getAppVersion(Context context){
         String version ="";
         int verCode =-1;
 
         try {
-
-            PackageInfo pInfo = MainActivity.context.getPackageManager().getPackageInfo(MainActivity.context.getPackageName(), 0);
+            PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             version = pInfo.versionName;
             verCode = pInfo.versionCode;
             Log.d("Utils" , "Version Name : "+ version+ "  Version Number : "+ Integer.toString(verCode));
@@ -352,63 +327,88 @@ public class Utils {
         return version;
     }
 
+    public static String getBSSID(WifiManager wifimanager){
+        String bssid="";
+        try {
+            bssid = wifimanager.getConnectionInfo().getBSSID();
+            bssid = bssid.replaceAll("\"","");
+        } catch (Exception e) {
+            Log.d(Constants.LOGTAG,"Utils: bssid : Exception caught "+e.toString() );
+            bssid = "";
+        }
+        return bssid;
+
+    }
+
+    public static String getSSID(WifiManager wifimanager){
+        String ssid="";
+        try {
+            ssid = wifimanager.getConnectionInfo().getSSID();
+            ssid= ssid.replaceAll("\"", "");
+        } catch (Exception e) {
+            Log.d(Constants.LOGTAG,"Utils: ssid : Exception caught "+e.toString() );
+            ssid = "";
+        }
+        return ssid;
+
+    }
+
+    public static int getLinkspeed(WifiManager wifimanager){
+        int linkSpeed=0;
+        try {
+            linkSpeed = wifimanager.getConnectionInfo().getLinkSpeed();
+        } catch (Exception e) {
+            Log.d(Constants.LOGTAG,"Utils: linkspeed : Exception caught "+e.toString() );
+            linkSpeed = 0;
+        }
+        return linkSpeed;
+
+    }
+
+    public static int getRSSI (WifiManager wifimanager){
+        int rssi=0;
+        try {
+            rssi = wifimanager.getConnectionInfo().getRssi();
+        } catch (Exception e) {
+            Log.d(Constants.LOGTAG,"Utils: rssi : Exception caught "+e.toString() );
+            rssi = 0;
+        }
+        return rssi;
+
+    }
 
 
-    public static String getMyDetailsJson()
+    public static JSONObject getMyDetailsJson(Context context)
     {
+        WifiManager wifimanager = (WifiManager)context.getSystemService(context.WIFI_SERVICE);
         JSONObject obj = new JSONObject();
-        getIP();
+
 
         obj.put("action", "heartBeat");
-        obj.put("ip", MainActivity.myIp);
-        obj.put("appversion", getAppVersion()) ;
-        obj.put("androidVersion" , Integer.toString( Build.VERSION.SDK_INT ));
-        obj.put("isInForeground", String.valueOf(MainActivity.is_running_in_foreground));
+        obj.put("ip", getIP(wifimanager));
+        obj.put("appversion", getAppVersion(context)) ;
+        obj.put("androidVersion" , Integer.toString(Build.VERSION.SDK_INT));
+        SharedPreferences sharedPref = context.getSharedPreferences(Constants.appPref, context.MODE_PRIVATE);
+        int is_in_foreground = sharedPref.getInt(context.getString(R.string.is_running_in_foreground), Constants.false_value);
+        if(is_in_foreground==Constants.true_value)
+            obj.put("isInForeground", String.valueOf(true));
+        else
+            obj.put("isInForeground", String.valueOf(false));
         obj.put("devicename", getDeviceName()) ;
 
         if(MainActivity.serverConnection == null) {
             obj.put("port", "");
         }
         else {
-            MainActivity.myPort = MainActivity.serverConnection.getLocalPort();
-            obj.put("port", Integer.toString(MainActivity.myPort));
-        }
-        obj.put("macAddress", Utils.getMACAddress());
 
-        try {
-            MainActivity.rssi = MainActivity.wifimanager.getConnectionInfo().getRssi();
-        } catch (Exception e) {
-            Log.d(Constants.LOGTAG,"Utils: getmyDetailsJson() : rssi : Exception caught "+e.toString() );
-            MainActivity.rssi = 0;
+            obj.put("port", Integer.toString(MainActivity.serverConnection.getLocalPort()));
         }
+        obj.put("macAddress", Utils.getMACAddress(wifimanager));
 
-        try {
-            MainActivity.bssid = MainActivity.wifimanager.getConnectionInfo().getBSSID();
-            MainActivity.bssid=MainActivity.bssid.replaceAll("\"","");
-        } catch (Exception e) {
-            Log.d(Constants.LOGTAG,"Utils: getmyDetailsJson() : bssid : Exception caught "+e.toString() );
-            MainActivity.bssid = "";
-        }
-
-        try {
-            MainActivity.ssid = MainActivity.wifimanager.getConnectionInfo().getSSID();
-            MainActivity.ssid=MainActivity.ssid.replaceAll("\"", "");
-        } catch (Exception e) {
-            Log.d(Constants.LOGTAG,"Utils: getmyDetailsJson() : ssid : Exception caught "+e.toString() );
-            MainActivity.ssid = "";
-        }
-
-        try {
-            MainActivity.linkSpeed = MainActivity.wifimanager.getConnectionInfo().getLinkSpeed();
-        } catch (Exception e) {
-            Log.d(Constants.LOGTAG,"Utils: getmyDetailsJson() : linkspeed : Exception caught "+e.toString() );
-            MainActivity.linkSpeed = 0;
-        }
-
-        obj.put(Constants.rssi,Integer.toString(MainActivity.rssi));
-        obj.put(Constants.bssid, MainActivity.bssid);
-        obj.put(Constants.ssid, MainActivity.ssid);
-        obj.put(Constants.linkSpeed, Integer.toString(MainActivity.linkSpeed));
+        obj.put(Constants.rssi,Integer.toString(getRSSI(wifimanager)));
+        obj.put(Constants.bssid, getBSSID(wifimanager));
+        obj.put(Constants.ssid, getSSID(wifimanager));
+        obj.put(Constants.linkSpeed, Integer.toString(getLinkspeed(wifimanager)));
 
         obj.put(Constants.processorSpeed, getProcessorSpeed());
         obj.put(Constants.numberOfCores, Integer.toString(getNumCores()));
@@ -416,21 +416,15 @@ public class Utils {
 
         obj.put(Constants.storageSpace, getAvailableStorage());
         obj.put(Constants.memory, getTotalRAM());
-        //nameValuePairs.add(new BasicNameValuePair(Constants.packetCaptureAppUsed, (new Boolean(false)).toString()));
 
-        obj.put("bssidList",MainActivity.apInfo);
-
-        String jsonString = obj.toJSONString();
-        return  jsonString;
+        return  obj;
 
     }
 
 
     static Calendar getServerCalendarInstance(){
         Calendar cal = Calendar.getInstance();
-        Log.d("UTILS", "getServerCalendarInstance local " + MainActivity.sdf.format(cal.getTime()));
-        cal.add(Calendar.MILLISECOND, (int)MainActivity.serverTimeDelta);
-        Log.d("UTILS", "getServerCalendarInstance offset = " + MainActivity.serverTimeDelta + " | server " + MainActivity.sdf.format(cal.getTime()));
+        cal.add(Calendar.MILLISECOND, (int) MainActivity.serverTimeDelta);
         return cal;
     }
 
@@ -462,6 +456,7 @@ public class Utils {
         return jsonMap;
     }
 
+    //Establishes a connection to server
     public static class NewConnection extends AsyncTask< Void, Void, Void> {
 
         @Override
@@ -480,24 +475,24 @@ public class Utils {
             }
 
                     try {
-                    MainActivity.serverConnection = new Socket("wicroft.cse.iitb.ac.in", MainActivity.serverport);
-                    Log.d("Utils", "creating new socket...");
+                    MainActivity.serverConnection = new Socket(Constants.server, Constants.serverport);
+                    Log.d(Constants.LOGTAG, "Utils : creating new socket...");
 
                     try {
                         MainActivity.dis = new DataInputStream( MainActivity.serverConnection.getInputStream());
                         MainActivity.dout = new DataOutputStream( MainActivity.serverConnection.getOutputStream());
                        // MainActivity.ConnectionCondition.open();
-                        Log.d("Utils", "setting data streams...");
+                        Log.d(Constants.LOGTAG ,"Utils : setting data streams...");
                     }
                     catch (Exception e) {
 
-                        Log.d("Utils", "Exceptionwhile initalizing datastream " + e.toString());
+                        Log.d( Constants.LOGTAG , "Utils : Exceptionwhile initalizing datastream " + e.toString());
 
                        // e.printStackTrace();
                     }
 
                     } catch (Exception e) {
-                    Log.d("Utils", "Exceptionwhile creating a new connection" + e.toString());
+                    Log.d(Constants.LOGTAG , "Utils: Exceptionwhile creating a new connection" + e.toString());
                     //e.printStackTrace();
                         }
 

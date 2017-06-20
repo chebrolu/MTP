@@ -15,20 +15,10 @@ public class UpdateManager extends WakefulBroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-
-        if(MainActivity.debugging_on) {
-            Calendar cal = Calendar.getInstance();
-            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-            Threads.writeToLogFile(MainActivity.debugfilename, "\n" + format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime()) + ": UpdateManager : Intent Received. " + "\n");
-
-        }
-
-            //The intent is received after the application has been updated, re-start the heartbeat service here.
-        Intent startServiceIntent = new Intent(context, Heartbeat.class);
+        Threads.writeLog(Constants.debugLogFilename , "app has been updated. Starting MainService");
+        //The intent is received after the application has been updated, we need to re-start the app(service) here.
+        Intent startServiceIntent = new Intent(context, MainService.class);
         context.startService(startServiceIntent);
-
-        Log.d(" UpdateManager" , " The intent received , HB service has been started ." );
-
-
+        Log.d(Constants.LOGTAG , " app has been updated. Starting MainService" );
     }
 }

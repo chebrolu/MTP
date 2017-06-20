@@ -2,6 +2,8 @@ package com.iitb.wicroft;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
@@ -34,19 +36,17 @@ public class Threads {
 
     //send the log file specified by given name
     @SuppressWarnings("deprecation")
-    static int sendLog(String logFileName){
+    static int sendLog(String logFileName, String mac){
         int statusCode = 404;
-
-        String temp_name = Utils.getMACAddress() ; //this would be the name at the server
+        String temp_name = mac ;            //this would be the name at the server
         String logFilePath = Constants.logDirectory + "/" + logFileName;
-        String url = "http://" + "wicroft.cse.iitb.ac.in" + ":" + MainActivity.port + "/" + Constants.SERVLET_NAME + "/receiveLogFile.jsp";
+        String url = "http://" + Constants.server + ":" + Constants.port + "/" + Constants.SERVLET_NAME + "/receiveLogFile.jsp";
         Log.d(Constants.LOGTAG, "Upload url " + url);
-//		String url = "http://192.168.0.107/fup.php";
 
         File logFile = new File(logFilePath);
         if(!logFile.exists()){
             Log.d(Constants.LOGTAG, "sendLog : File not found " + logFilePath + " May be sent earlier");
-            return 200; //already sent sometime earlier
+            return 200;                     //already sent sometime earlier
         }
 
         MultipartEntity mpEntity  = new MultipartEntity();
@@ -55,12 +55,10 @@ public class Threads {
         try {
             mpEntity.addPart("expID", new StringBody(logFileName));
 
-            if(logFileName.equals(MainActivity.debugfilename) || logFileName.equals("ConnectionLog") ) {
-
+            if(logFileName.equals(Constants.debugLogFilename) || logFileName.equals(Constants.connLogFilename) ) {
                 SimpleDateFormat s = new SimpleDateFormat("ddMMyyyyhhmmss");
                 String format = s.format(new Date());
                 temp_name +="_"+format;
-
             }
             mpEntity.addPart(Constants.macAddress, new StringBody(temp_name));
             mpEntity.addPart("file", new FileBody(logFile));
@@ -75,7 +73,6 @@ public class Threads {
                     logFile.delete(); //now deleting log file
                 }
                 else{
-
                     Log.d(Constants.LOGTAG, "Sending Log file " + logFileName + " failed with statuscode : "+statusCode);
                 }
             } catch (ClientProtocolException e) {
@@ -95,14 +92,21 @@ public class Threads {
 
     //write log content to log file specified
     static synchronized String writeToLogFile(String logfilename, String log){
-        File logfile = new File(MainActivity.logDir, logfilename);
+        File logfile;
+        try {
+            logfile = new File(new File(Constants.logDirectory), logfilename);
+        }
+        catch (Exception e){
+            Log.d(Constants.LOGTAG, "Exception caught in writing to log file");
+            return "";
+        }
         long length = logfile.length();
-        Log.d("Logfile_write" , "File size in bytes"+length);
+
         if(length >= 51200) //50KB
         {
-            Log.d("Logfile_write" , "****deleting****file** : Size limit exceeded.");
+            Log.d(Constants.LOGTAG , "Deleting File : Size exceeded 50KB");
             logfile.delete();
-            logfile = new File(MainActivity.logDir, logfilename);
+            logfile = new File(new File(Constants.logDirectory), logfilename);
 
         }
         BufferedWriter logwriter = null;
@@ -125,7 +129,7 @@ public class Threads {
     //save control file sent by server, using fileid received as filename
 
     static synchronized String saveControlFile(String controlfilename, String controlinfo){
-        File controlfile = new File(MainActivity.controlDir, controlfilename);
+        File controlfile = new File(new File(Constants.controlFileDirectory), controlfilename);
         if(controlfile.exists())
             controlfile.delete();
         BufferedWriter controlwriter = null;
@@ -133,7 +137,6 @@ public class Threads {
         try {
             controlwriter = new BufferedWriter(new FileWriter(controlfile, true));
             controlwriter.write(controlinfo);
-           // controlwriter.append(controlinfo);
             controlwriter.close();
             msg += " control file write success\n";
         } catch (IOException e1) {
@@ -177,11 +180,14 @@ public class Threads {
 
 
     //completes request specified in given event(identified by eventid)
-    //also writes log to logfile about progress
-    //if all downloads over, send the log file
+    //also writes log to logfile about progress : this is called for socket mode. (This downloads the file and save on device as opposed to video which is streaming.)
     static int HandleEvent(RequestEvent event, final Context context){
         //Log file will be named   <eventid> . <loadid>
-        if(!MainActivity.running){
+        SharedPreferences sharedPref = context.getSharedPreferences(Constants.appPref, context.MODE_PRIVATE);
+        int expt_running = sharedPref.getInt(context.getString(R.string.running), Constants.false_value);
+        SharedPreferences.Editor editor = sharedPref.edit();
+
+        if(expt_running==Constants.false_value){
             Log.d(Constants.LOGTAG, "HandleEvent : But experiment not running");
             return -1;
         }
@@ -195,7 +201,7 @@ public class Threads {
 
         //RequestEvent event = currentLoad.events.get(eventid);
         String logfilename = "" + currentLoad.loadid;
-
+        WifiManager wm = (WifiManager)context.getSystemService(context.WIFI_SERVICE);
 
         Log.d(Constants.LOGTAG, "HandleEvent : just entered thread");
 
@@ -203,7 +209,6 @@ public class Threads {
         OutputStream output = null;
         HttpURLConnection connection = null;
         String filename = "unknown"; //file name of file to download in request
-        //BufferedWriter logwriter = null;
         boolean success = false;
 
         Calendar startTime = null, endTime = null;
@@ -252,7 +257,7 @@ public class Threads {
 
                 // download the file
                 input = connection.getInputStream();
-                Log.d(Constants.LOGTAG,"storinghere... "+Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename);
+                Log.d(Constants.LOGTAG,"storing here:"+Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename);
                 output = new FileOutputStream(Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename);
 
                 byte data[] = new byte[4096];
@@ -340,19 +345,20 @@ public class Threads {
             msg += retmsg;
 
             int response = 0;
-            String expOver = Utils.getExpOverJson();
+            String expOver = Utils.getExpOverJson(wm);
             // String expOver = "{\"action\":\"expOver\",\"ip\":" + MainActivity.myIp + "\",\"port\":" + MainActivity.myPort + "\",\"macAddress\":" + Utils.getMACAddress() + "\"}";
-            response = ConnectionManager.writeToStream(expOver);
+            response = ConnectionManager.writeToStream(expOver,true);
             Log.d(Constants.LOGTAG, "Experiment Over Signal sent to server:" + Integer.toString(response));
 
-            MainActivity.running = false;
+            editor.putInt(context.getString(R.string.running),Constants.false_value );
+            editor.commit();
             //added just to make sure that the expt is over.. locally..
-
-            boolean was_running =  MainActivity.context.stopService(MainActivity.startExperimentIntent);
-            Log.d(Constants.LOGTAG, " Stopping the service from my browser.. : "+ was_running);
+            //TODO : Remove this Mainactivity.startExperimentIntent
+            boolean was_running = context.stopService(new Intent(context, Experiment.class));
+            Log.d(Constants.LOGTAG, " Stopping the service from my Threads.. : "+ was_running);
 
             // Send stop experiment..
-            ConnectionManager.writeToStream(Constants.experimentOver);
+            ConnectionManager.writeToStream(expOver,true);
 
         }
         else{//just write the log to log file
@@ -379,26 +385,21 @@ public class Threads {
         File[] files = storage.listFiles();
         int sent = 0;
         int errors = 0;
-
-        String currExpLogFile = "-1" ;
-        if(MainActivity.load != null) {
-            currExpLogFile = Long.toString(MainActivity.load.loadid);
-        }
+        WifiManager wm = (WifiManager)ctx.getSystemService(ctx.WIFI_SERVICE);
+        String mac = Utils.getMACAddress(wm);
 
         for(int i=0; i<files.length; i++){
             File c = files[i];
             String logFileName = c.getName();
 
-
-            if(!logFileName.equals(currExpLogFile)){ //pending log file is not current experiment's log
-                int status = Threads.sendLog(logFileName);
-                if(status == 200){
-                    sent++;
-                }
-                else{
-                    errors++;
-                }
+            int status = Threads.sendLog(logFileName,mac);
+            if(status == 200){
+                sent++;
             }
+            else{
+                errors++;
+            }
+
         }
         Intent localIntent = new Intent(Constants.BROADCAST_ACTION)
                 .putExtra(Constants.BROADCAST_MESSAGE,
@@ -406,6 +407,16 @@ public class Threads {
 
         // Broadcasts the Intent to receivers in this application.
         LocalBroadcastManager.getInstance(ctx).sendBroadcast(localIntent);
+    }
+
+//Writing to the Debug log file if debugging is on.
+    static void writeLog(String filename, String msg ){
+        if(Constants.debugging_on){
+            Calendar cal = Calendar.getInstance();
+            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
+            Threads.writeToLogFile(filename, "\n" + format1.format(cal.getTime()) + " " + Utils.sdf.format(cal.getTime()) + msg );
+
+        }
     }
 
 

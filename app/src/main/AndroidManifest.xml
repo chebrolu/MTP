@@ -23,14 +23,13 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
 
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/wicroft"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
-
+        android:theme="@style/AppTheme"
+        android:name=".DemoApplication">
 
         <activity
             android:name=".MainActivity"
@@ -43,9 +42,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-
-
 
         <receiver android:name=".AlarmReceiver">
             <intent-filter>
@@ -78,28 +74,23 @@
 
 
         <service
-            android:name=".ForegroundAppService"
-            android:exported="false" />
-
-        <service
             android:name=".DeviceInfo"
             android:exported="false" />
 
         <service
-            android:name=".Heartbeat"
+            android:name=".MainService"
             android:exported="false" />
 
-        <service android:name=".BackgroundServices"
+         <service android:enabled="true" android:name=".Experiment"
             android:exported="false" />
 
-        <service android:enabled="true" android:name=".Experiment"
-            android:exported="false" />
-
-        <service android:enabled="true" android:name=".UpdateService"
-            android:exported="false" />
 
         <service
             android:name=".DownloaderService"
+            android:exported="false"/>
+
+        <service
+            android:name=".VideoPlayer"
             android:exported="false"/>
 
         <receiver android:name=".EventAlarmReceiver" >
@@ -107,8 +98,6 @@
         <receiver android:name=".ChangeAp" >
         </receiver>
         <receiver android:name=".BackgroundAppReceiver" >
-        </receiver>
-        <receiver android:name=".ResponseReceiver" >
         </receiver>
         <receiver android:name=".restartHB">
         </receiver>

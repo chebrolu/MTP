@@ -16,12 +16,15 @@ import android.util.Log;
 enum RequestType{
     GET,
     POST,
+    DASH,
+    MP4,
     NONE
 };
 
 enum DownloadMode{
     SOCKET,
     WEBVIEW,
+    EXO,
     NONE
 };
 
@@ -74,14 +77,14 @@ class RequestEvent{
 
 //Load contains all information about an experiment i.e event id and list of all events
 class Load{
-    long loadid;
+    String loadid;
     Vector<RequestEvent> events;
     Vector<RequestEvent> independent_events;
     Map< Integer , Vector<RequestEvent>> url_dependency_graph;
     int total_events;
 
     int request_completed ;
-    Load(long tloadid,int tcount, Vector<RequestEvent> all_events, Vector<RequestEvent> tevents , Map< Integer , Vector<RequestEvent>> dep_graph){
+    Load(String tloadid,int tcount, Vector<RequestEvent> all_events, Vector<RequestEvent> tevents , Map< Integer , Vector<RequestEvent>> dep_graph){
         loadid = tloadid;
         events = all_events;
         total_events = tcount;
@@ -97,14 +100,16 @@ public class RequestEventParser {
     private static final Map<String, RequestType> typeMap;
     private static final Map<String, DownloadMode> modeMap;
     static
-    {
-        typeMap = new HashMap<String, RequestType>();
+    {   typeMap = new HashMap<String, RequestType>();
         typeMap.put("GET", RequestType.GET);
         typeMap.put("POST", RequestType.POST);
+        typeMap.put("DASH", RequestType.DASH);
+        typeMap.put("MP4", RequestType.MP4);
 
         modeMap = new HashMap<String, DownloadMode>();
         modeMap.put("SOCKET", DownloadMode.SOCKET);
         modeMap.put("WEBVIEW", DownloadMode.WEBVIEW);
+        modeMap.put("EXO",DownloadMode.EXO);
     }
 
     public static RequestType getRequestEnum(String key){
@@ -174,7 +179,7 @@ public class RequestEventParser {
         return null;
     }
 
-    public static Load parseEvents(String s){
+    public static Load parseEvents(String s , String exptno){
         String msg =" RequestEventParser : Entered Here. ";
         Vector<RequestEvent> independent_events = new Vector<RequestEvent>();
         Vector<RequestEvent> all_events = new Vector<RequestEvent>();
@@ -182,7 +187,7 @@ public class RequestEventParser {
         Scanner scanner = new Scanner(s);
         String line ;
         int count =0; // total number of events
-        long id = MainActivity.exptno ;
+        String id = exptno ;
         while (scanner.hasNextLine()) {
             count++;
             line = scanner.nextLine();
@@ -210,12 +215,7 @@ public class RequestEventParser {
         msg+=" Return Event: "+ independent_events.size() +"";
 
         Log.d(Constants.LOGTAG, msg);
-        if(MainActivity.debugging_on) {
-            Calendar cal = Calendar.getInstance();
-            SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd");
-            Threads.writeToLogFile(MainActivity.debugfilename ,"\n"+format1.format(cal.getTime()) +" "+ Utils.sdf.format(cal.getTime())+": Parsing of the control file done.");
-
-        }
+        Threads.writeLog(Constants.debugLogFilename ,msg);
 
         return new Load(id,count,all_events, independent_events ,dep_graph );
     }
