@@ -98,23 +98,14 @@ public class EventAlarmReceiver extends WakefulBroadcastReceiver
        msg +="\n e.cal time in millisec : "+ Long.toString(e.cal.getTimeInMillis()) + "MainActivity.serverTimeDelta : " + Long.toString(MainActivity.serverTimeDelta);
         msg+="\n Scheduling " + e.event_id + "@" + Constants.sdf.format(e.cal.getTime());
         msg+= "\n current time in ms :" + Long.toString(Calendar.getInstance().getTimeInMillis());
-        msg+= "\n alarmwakeup in ms"+ Long.toString(e.cal.getTimeInMillis() - MainActivity.serverTimeDelta);
+        msg+= "\n alarmwakeup in ms"+ Long.toString(e.cal.getTimeInMillis());
        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT){
            // for kitkat and above versions
-           am.setExact(AlarmManager.RTC_WAKEUP, e.cal.getTimeInMillis() - MainActivity.serverTimeDelta, sender);
+           am.setExact(AlarmManager.RTC_WAKEUP, e.cal.getTimeInMillis(), sender);
        } else{
            // for phones running an SDK before kitkat
-           am.set(AlarmManager.RTC_WAKEUP, e.cal.getTimeInMillis() - MainActivity.serverTimeDelta, sender);
+           am.set(AlarmManager.RTC_WAKEUP, e.cal.getTimeInMillis(), sender);
        }
-
-		/*
-		 * [event_time_stamp - (server - local)] gives when alarm should be scheduled.
-		 * Why ? Details ahead :
-		 * For e.g if local 2.00, server 2.10. Difference (server - local) = 10
-		 * Now server says schedule alarm at 2.15. Alarms follow local time.
-		 * So now according to local time, alarm should be scheduled at
-		 * time 2.05 (because at that moment servertime will be 2.05 + 10 = 2.15)
-		 */
 
         MainActivity.currEvent++;
         Log.d(Constants.LOGTAG, msg);
@@ -135,7 +126,7 @@ public class EventAlarmReceiver extends WakefulBroadcastReceiver
         PendingIntent sender = PendingIntent.getBroadcast(context, 123456+i1, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         String msg = "Schedule_dependency_event";
         msg+="\n Scheduling " + e.event_id + "@ " + e.relative_time;
-        long curr_time = System.currentTimeMillis();
+
         long t = e.relative_time*1000;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             am.setExact(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + t, sender);

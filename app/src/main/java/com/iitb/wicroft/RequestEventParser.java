@@ -162,7 +162,7 @@ public class RequestEventParser {
         RequestType type = getRequestEnum(fields[0]);
 
         Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis( MainActivity.serverTimeInMillis + (Integer.parseInt(fields[1]) *1000 )) ;
+        cal.setTimeInMillis( Calendar.getInstance().getTimeInMillis() + (Integer.parseInt(fields[1]) *1000 )) ;
         DownloadMode mode = getDownloadModeEnum(fields[2]);
         String url = fields[3];
         int url_dep = Integer.parseInt(fields[fields.length-1]);
